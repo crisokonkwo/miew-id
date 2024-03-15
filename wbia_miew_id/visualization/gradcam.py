@@ -235,13 +235,13 @@ def draw_batch(config, test_loader, model, images_dir = '', method='hires_cam', 
     target_layers = model.backbone.conv_head
 
     if method=='gradcam_plus_plus':
-        generate_cam = GradCAMPlusPlus(model=model,target_layers=[target_layers],use_cuda=use_cuda)
+        generate_cam = GradCAMPlusPlus(model=model,target_layers=[target_layers],reshape_transform=None)
     elif method=='eigencam':
-        generate_cam = EigenCAM(model=model,target_layers=[target_layers],use_cuda=use_cuda)
+        generate_cam = EigenCAM(model=model,target_layers=[target_layers],reshape_transform=None)
     elif method=='hires_cam':
-        generate_cam = HiResCAM(model=model,target_layers=[target_layers],use_cuda=use_cuda)
+        generate_cam = HiResCAM(model=model,target_layers=[target_layers],reshape_transform=None)
     elif method=='gradcam':
-        generate_cam = GradCAM(model=model,target_layers=[target_layers],use_cuda=use_cuda)
+        generate_cam = GradCAM(model=model,target_layers=[target_layers],reshape_transform=None)
 
     qry_idx = 0
     db_idx = 1
