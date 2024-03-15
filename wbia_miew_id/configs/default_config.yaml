@@ -1,50 +1,44 @@
-exp_name: default_experiment
-project_name: default_config
+exp_name: strat_four_identifiability
+project_name: ankit_identifiability
 checkpoint_dir: ./runs
 comment: Experiment comment goes here
 data:
-  images_dir: null
-  use_full_image_path: true
-  preprocess_images: 
-    apply: false
-    force_apply: false
-    preprocessed_dir: null
-  viewpoint_list: null
-  name_keys: ['name']
-  crop_bbox: false
+  images_dir: /content/drive/MyDrive/leopard/images/test2023
+  use_full_image_path: false
+  preprocess_images: false
+  viewpoint_list: ['left', 'right']
+  name_keys: ['name', 'viewpoint']
+  crop_bbox: true
   image_size:
-    - 256
-    - 256
+    - 480
+    - 480
   test:
-    anno_path: /mnt/space/space-home/wild-me/multi-species/splits/EDA-single-species-1/instances_val2023.json
-    checkpoint_path: ''
-    eval_groups:
-    - species
+    anno_path: /content/drive/MyDrive/leopard_group_3.json
+    checkpoint_path: '/content/drive/MyDrive/wbia-plugin-miew-id/wbia_miew_id/runs/ankit_identifiability/strat_four_identifiability/model_best.bin'
     n_filter_min: 2
     n_subsample_max: 10
   train:
-    anno_path: /mnt/space/space-home/wild-me/multi-species/splits/EDA-single-species-1/instances_train2023.json
-    n_filter_min: 4
+    anno_path: /content/drive/MyDrive/leopard_train_strat_four.json
+    n_filter_min: 3
     n_subsample_max: null
   val:
-    anno_path: /mnt/space/space-home/wild-me/multi-species/splits/EDA-single-species-1/instances_val2023.json
+    anno_path: /content/drive/MyDrive/leopard_group_3.json
     n_filter_min: 2
     n_subsample_max: 10
-
 engine:
-  num_workers: 8
+  num_workers: 2
   train_batch_size: 6
   valid_batch_size: 12
   epochs: 30
   seed: 42
   device: cuda
   use_wandb: false
-  use_swa: false
+  loss_module: arcface
 
 scheduler_params:
-  lr_start: 1.e-5
-  lr_max: 1.e-3
-  lr_min: 9.e-6
+  lr_start: 3.510988205019138e-05
+  lr_max: 0.0003510988205019138
+  lr_min: 1.755494102509569e-05
   lr_ramp_ep: 15
   lr_sus_ep: 0
   lr_decay: 0.8
@@ -55,15 +49,16 @@ model_params:
   fc_dim: 2048
   dropout: 0.0
   loss_module: arcface
-  s: 30.0
-  margin: 0.50
-  ls_eps: 0.0
-  theta_zero: 0.785
+  s: 40.27228179427104
+  margin: 0.3035845476844968
   pretrained: true
   n_classes: 865 
+  theta_zero: 0.785
+  
+test:
   fliplr: false
   fliplr_view: []
-  batch_size: 8
+  batch_size: 8s
 
 swa_params:
   swa_lr: 0.00014
