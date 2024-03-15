@@ -21,13 +21,15 @@ class IdxSampler(Sampler):
 
 def stack_match_images(images, descriptions, match_mask, text_color=(0, 0, 0)):  # OpenCV uses BGR
     assert len(images) == len(descriptions) == len(match_mask), "Number of images, descriptions and match_mask must be the same."
-
-    result_images = []
+    flag = 0
+    result_images, identifiable, non_identifiable = [], [], []
     for img, desc, match_correct in zip(images, descriptions, match_mask):
 
         desc_qry, desc_db = desc
         img = (img * 255).astype(np.uint8)
         color = (0, 255, 0) if match_correct else (0, 0, 255)  # green for correct, red for incorrect
+        if match_correct:
+          flag = 1
         bw = 12
         img = cv2.copyMakeBorder(img, bw, bw, bw, bw, cv2.BORDER_CONSTANT, value=color)
 
@@ -39,9 +41,14 @@ def stack_match_images(images, descriptions, match_mask, text_color=(0, 0, 0)): 
         cv2.putText(text_img, desc_db, (img.shape[1]//2 + th, int(th * 1.5)), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, 4)
         result_images.extend([text_img, img])
 
+    if flag==1:
+        identifiable.append(desc_qry)
+    else:
+        non_identifiable.append(desc_qry)
+
     result = np.vstack(result_images)
 
-    return result
+    return result, identifiable, non_identifiable
 
 def render_single_query_result(config, model, vis_loader, df_vis, qry_row, qry_idx, vis_match_mask, k=5):
     
@@ -53,32 +60,36 @@ def render_single_query_result(config, model, vis_loader, df_vis, qry_row, qry_i
         render_transformed=True, show=False, use_cuda=use_cuda)
 
     viewpoints = df_vis['viewpoint'].values
+    file_paths = [path.split("/")[-1] for path in df_vis['file_path'].values]
     names = df_vis['name'].values
     indices = df_vis.index.values
     qry_name = qry_row['name']
+    qry_path = qry_row['file_path'].split("/")[-1]
     qry_viewpoint = qry_row['viewpoint']
     qry_loc_idx = qry_row.name
 
-    desc_qry = [f"Query: {qry_name} {qry_viewpoint} ({qry_loc_idx})" for i in range(len(viewpoints))]
-    desc_db = [f"Match: {name} {viewpoint} ({idx})" for name, viewpoint, idx in zip(names, viewpoints, indices)]
+    desc_qry = [f"Query: {qry_name} {qry_viewpoint} ({qry_path})" for i in range(len(viewpoints))]
+    desc_db = [f"Match: {name} {viewpoint} ({file_path})" for name, viewpoint, file_path in zip(names, viewpoints, file_paths)]
     descriptions = [(q, d) for q, d in zip(desc_qry, desc_db)]
 
-    vis_result = stack_match_images(batch_images, descriptions, vis_match_mask)
+    vis_result, vis_identifiable, vis_non_identifiable = stack_match_images(batch_images, descriptions, vis_match_mask)
 
     output_dir = f"{config.checkpoint_dir}/{config.project_name}/{config.exp_name}/visualizations"
-    output_name = f"vis_{qry_name}_{qry_viewpoint}_{qry_loc_idx}_top{k}.jpg"
+    output_name = f"vis_{qry_name}_{qry_viewpoint}_{qry_path}_top{k}.jpg"
     output_path = os.path.join(output_dir, output_name)
 
     os.makedirs(output_dir, exist_ok=True)
     cv2.imwrite(output_path, vis_result, [cv2.IMWRITE_JPEG_QUALITY, 60])
 
     print(f"Saved visualization to {output_path}")
+    return vis_identifiable, vis_non_identifiable
 
 def render_query_results(config, model, test_dataset, df_test, match_results, k=5):
 
     q_pids, topk_idx, topk_names, match_mat = match_results
 
     print("Generating visualizations...")
+    vis_identifiable_all, vis_non_identifiable_all = [], []
     for i in tqdm(range(len(q_pids))):
         #
         vis_idx = topk_idx[i].tolist()
@@ -103,4 +114,19 @@ def render_query_results(config, model, test_dataset, df_test, match_results, k=
                 sampler = idxSampler
             )
         
-        render_single_query_result(config, model, vis_loader, df_vis, qry_row, qry_idx, vis_match_mask, k=k)
+        vis_identifiable, vis_non_identifiable = render_single_query_result(config, model, vis_loader, df_vis, qry_row, qry_idx, vis_match_mask, k=k)
+        vis_identifiable_all.extend(vis_identifiable)
+        vis_non_identifiable_all.extend(vis_non_identifiable)
+
+    output_dir = f"{config.checkpoint_dir}/{config.project_name}/{config.exp_name}/visualizations"
+    os.makedirs(output_dir, exist_ok=True)
+
+    with open(os.path.join(output_dir, 'vis_identifiable.txt'), 'w') as f:
+        for item in vis_identifiable_all:
+            f.write("%s\n" % item)
+
+    with open(os.path.join(output_dir, 'vis_non_identifiable.txt'), 'w') as f:
+        for item in vis_non_identifiable_all:
+            f.write("%s\n" % item)
+
+    print(f"Saved identifiable and non-identifiable descriptions to {output_dir}")
