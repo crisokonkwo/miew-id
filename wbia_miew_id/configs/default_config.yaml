@@ -1,9 +1,9 @@
-exp_name: strat_four_identifiability
-project_name: ankit_identifiability
+exp_name: strat_four_identifiability_new
+project_name: ankit_identifiability_CCI_final_run_new_12
 checkpoint_dir: ./runs
 comment: Experiment comment goes here
 data:
-  images_dir: /content/drive/MyDrive/leopard/images/test2023
+  images_dir: /gpfs/u/home/GGRD/GGRDpdhm/scratch/coco/images/test2023
   use_full_image_path: false
   preprocess_images: false
   viewpoint_list: ['left', 'right']
@@ -13,22 +13,22 @@ data:
     - 480
     - 480
   test:
-    anno_path: /content/drive/MyDrive/leopard_group_3.json
-    checkpoint_path: '/content/drive/MyDrive/wbia-plugin-miew-id/wbia_miew_id/runs/ankit_identifiability/strat_four_identifiability/model_best.bin'
+    anno_path: /gpfs/u/home/GGRD/GGRDpdhm/barn/miniconda3x86/envs/jupyter/leopard_group_3.json
+    checkpoint_path: ''
     n_filter_min: 2
     n_subsample_max: 10
   train:
-    anno_path: /content/drive/MyDrive/leopard_train_strat_four.json
+    anno_path: /gpfs/u/home/GGRD/GGRDpdhm/barn/miniconda3x86/envs/jupyter/leopard_train_strat_four.json
     n_filter_min: 3
     n_subsample_max: null
   val:
-    anno_path: /content/drive/MyDrive/leopard_group_3.json
+    anno_path: /gpfs/u/home/GGRD/GGRDpdhm/barn/miniconda3x86/envs/jupyter/leopard_group_3.json
     n_filter_min: 2
     n_subsample_max: 10
 engine:
   num_workers: 2
-  train_batch_size: 6
-  valid_batch_size: 12
+  train_batch_size: 2
+  valid_batch_size: 6
   epochs: 30
   seed: 42
   device: cuda
@@ -59,7 +59,3 @@ test:
   fliplr: false
   fliplr_view: []
   batch_size: 8s
-
-swa_params:
-  swa_lr: 0.00014
-  swa_start: 21
