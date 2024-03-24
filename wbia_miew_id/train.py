@@ -1,12 +1,11 @@
 from datasets import MiewIdDataset, get_train_transforms, get_valid_transforms
 from logging_utils import WandbContext
 from models import MiewIdNet
-from etl import preprocess_data, print_intersect_stats, load_preprocessed_mapping, preprocess_dataset
+from etl import preprocess_data, print_intersect_stats, preprocess_images
 from losses import fetch_loss
 from schedulers import MiewIdScheduler
 from engine import run_fn
 from helpers import get_config, write_config
-from torch.optim.swa_utils import AveragedModel, SWALR
 
 import os
 import torch
@@ -56,7 +55,7 @@ def run(config):
                                 use_full_image_path=config.data.use_full_image_path,
                                 images_dir = config.data.images_dir,
                                 )
-
+    
     df_val = preprocess_data(config.data.val.anno_path, 
                                 name_keys=config.data.name_keys,
                                 convert_names_to_ids=True, 
@@ -72,35 +71,18 @@ def run(config):
     n_train_classes = df_train['name'].nunique()
 
     crop_bbox = config.data.crop_bbox
-    # if config.data.preprocess_images.force_apply:
-    #     preprocess_dir_images = os.path.join(checkpoint_dir, 'images')
-    #     preprocess_dir_train = os.path.join(preprocess_dir_images, 'train')
-    #     preprocess_dir_val = os.path.join(preprocess_dir_images, 'val')
-    #     print("Preprocessing images. Destination: ", preprocess_dir_images)
-    #     os.makedirs(preprocess_dir_train)
-    #     os.makedirs(preprocess_dir_val)
+    if config.data.preprocess_images:
+        preprocess_dir_images = os.path.join(checkpoint_dir, 'images')
+        preprocess_dir_train = os.path.join(preprocess_dir_images, 'train')
+        preprocess_dir_val = os.path.join(preprocess_dir_images, 'val')
+        print("Preprocessing images. Destination: ", preprocess_dir_images)
+        os.makedirs(preprocess_dir_train)
+        os.makedirs(preprocess_dir_val)
 
-    #     target_size = (config.data.image_size[0],config.data.image_size[1])
+        target_size = (config.data.image_size[0],config.data.image_size[1])
 
-    #     df_train = preprocess_images(df_train, crop_bbox, preprocess_dir_train, target_size)
-    #     df_val = preprocess_images(df_val, crop_bbox, preprocess_dir_val, target_size)
-
-    #     crop_bbox = False
-
-    if config.data.preprocess_images.apply:
-
-        if config.data.preprocess_images.preprocessed_dir is None:
-            preprocess_dir_images = os.path.join(checkpoint_dir, 'images')
-        else:
-            preprocess_dir_images = config.data.preprocess_images.preprocessed_dir
-
-        if os.path.exists(preprocess_dir_images) and not config.data.preprocess_images.force_apply:
-            print('Preprocessed images directory found at: ', preprocess_dir_images)
-        else:
-            preprocess_dataset(config, preprocess_dir_images)
-
-        df_train = load_preprocessed_mapping(df_train, preprocess_dir_images)
-        df_val = load_preprocessed_mapping(df_val, preprocess_dir_images)
+        df_train = preprocess_images(df_train, crop_bbox, preprocess_dir_train, target_size)
+        df_val = preprocess_images(df_val, crop_bbox, preprocess_dir_val, target_size)
 
         crop_bbox = False
 
@@ -163,22 +145,13 @@ def run(config):
 
     scheduler = MiewIdScheduler(optimizer,**dict(config.scheduler_params))
 
-    if config.engine.use_swa:
-        swa_model = AveragedModel(model)
-        swa_model.to(device)
-        swa_scheduler = SWALR(optimizer=optimizer, swa_lr=config.swa_params.swa_lr)
-        swa_start = config.swa_params.swa_start
-    else:
-        swa_model = None
-        swa_scheduler = None
-        swa_start = None
-
     write_config(config, config_path_out)
 
 
     with WandbContext(config):
-        best_score = run_fn(config, model, train_loader, valid_loader, criterion, optimizer, scheduler, device, checkpoint_dir, use_wandb=config.engine.use_wandb,
-            swa_model=swa_model, swa_scheduler=swa_scheduler, swa_start=swa_start)
+        best_score = run_fn(config, model, train_loader, valid_loader, criterion, optimizer, scheduler, device, checkpoint_dir, use_wandb=config.engine.use_wandb)
+
+
 
     return best_score
 
