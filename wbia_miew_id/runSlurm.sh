@@ -8,7 +8,7 @@
 #SBATCH --time=00:30:00          # total run time limit (HH:MM:SS)
 #SBATCH --mail-type=begin        # send email when job begins
 #SBATCH --mail-type=end          # send email when job ends
-#SBATCH --mail-user=charis3@rpi.edu    # change this to your email!
+#SBATCH --mail-user=example@rpi.edu    # change this to your email!
 
 # export your rank 0 information (its address and port)
 export MASTER_PORT=$(expr 10000 + $(echo -n $SLURM_JOBID | tail -c 4))
