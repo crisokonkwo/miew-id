@@ -15,6 +15,15 @@ from dotenv import load_dotenv
 
 import argparse
 
+import torch.distributed as dist
+from torch.utils.data.distributed import DistributedSampler
+
+# Environment variables set by torch.distributed.launch
+rank = int(os.environ["SLURM_PROCID"])
+world_size    = int(os.environ["WORLD_SIZE"])
+gpus_per_node = int(os.environ["SLURM_GPUS_ON_NODE"])
+local_rank = rank - gpus_per_node * (rank // gpus_per_node)
+
 # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 # os.environ['TORCH_USE_CUDA_DSA'] = "1"
 
@@ -101,11 +110,16 @@ def run(config):
         fliplr_view=config.test.fliplr_view,
         crop_bbox=crop_bbox,
     )
-        
+
+    # Restricts data loading to a subset of the dataset exclusive to the current process
+    train_sampler = DistributedSampler(dataset=train_dataset)
+    valid_sampler = DistributedSampler(dataset=valid_dataset)
+
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=config.engine.train_batch_size,
         num_workers=config.engine.num_workers,
+        sampler=train_sampler,
         shuffle=True,
         pin_memory=True,
         drop_last=True,
@@ -115,12 +129,16 @@ def run(config):
         valid_dataset,
         batch_size=config.engine.valid_batch_size,
         num_workers=config.engine.num_workers,
+        sampler=valid_sampler,
         shuffle=False,
         pin_memory=True,
         drop_last=False,
     )
 
-    device = torch.device(config.engine.device)
+    if config.engine.device=="cuda":
+        device = torch.device("cuda:{}".format(local_rank))
+    else:
+        device = torch.device(config.engine.device)
 
     if config.model_params.n_classes != n_train_classes:
         print(f"WARNING: Overriding n_classes in config ({config.model_params.n_classes}) which is different from actual n_train_classes in the dataset - ({n_train_classes}).")
@@ -136,6 +154,7 @@ def run(config):
 
     model = MiewIdNet(**dict(config.model_params), margins=margins)
     model.to(device)
+    ddp_model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], output_device=local_rank)
 
     criterion = fetch_loss()
     criterion.to(device)
@@ -149,16 +168,19 @@ def run(config):
 
 
     with WandbContext(config):
-        best_score = run_fn(config, model, train_loader, valid_loader, criterion, optimizer, scheduler, device, checkpoint_dir, use_wandb=config.engine.use_wandb)
-
-
+        best_score = run_fn(config, ddp_model, train_loader, valid_loader, criterion, optimizer, scheduler, device, checkpoint_dir, use_wandb=config.engine.use_wandb)
 
     return best_score
+
+def init_processes():
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
 if __name__ == '__main__':
     args = parse_args()
     config_path = args.config
     
     config = get_config(config_path)
+
+    init_processes()
 
     run(config)
