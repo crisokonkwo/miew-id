@@ -18,8 +18,14 @@ import argparse
 import torch.distributed as dist
 from torch.utils.data.distributed import DistributedSampler
 
+# For DDP utils
+from socket import gethostname
+
 # Environment variables set by torch.distributed.launch
 rank = int(os.environ["SLURM_PROCID"])
+#rank = 0
+#gpus_per_node = 2
+#world_size = 4
 world_size    = int(os.environ["WORLD_SIZE"])
 gpus_per_node = int(os.environ["SLURM_GPUS_ON_NODE"])
 local_rank = rank - gpus_per_node * (rank // gpus_per_node)
@@ -37,9 +43,9 @@ def parse_args():
     )
     return parser.parse_args()
 
-def run(config):
-    checkpoint_dir = f"{config.checkpoint_dir}/{config.project_name}/{config.exp_name}"
-    os.makedirs(checkpoint_dir, exist_ok=False)
+def run(config, checkpoint_dir):
+    #checkpoint_dir = f"{config.checkpoint_dir}/{config.project_name}/{config.exp_name}"
+    #os.makedirs(checkpoint_dir, exist_ok=False)
     print('Checkpoints will be saved at: ', checkpoint_dir)
 
     config_path_out = f'{checkpoint_dir}/{config.exp_name}.yaml'
@@ -113,14 +119,16 @@ def run(config):
 
     # Restricts data loading to a subset of the dataset exclusive to the current process
     train_sampler = DistributedSampler(dataset=train_dataset)
+    #train_sampler = torch.utils.data.SubsetRandomSampler(train_dataset)
     valid_sampler = DistributedSampler(dataset=valid_dataset)
+    #valid_sampler = torch.utils.data.SubsetRandomSampler(valid_dataset)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=config.engine.train_batch_size,
         num_workers=config.engine.num_workers,
         sampler=train_sampler,
-        shuffle=True,
+        shuffle=False,
         pin_memory=True,
         drop_last=True,
     )
@@ -166,21 +174,36 @@ def run(config):
 
     write_config(config, config_path_out)
 
-
     with WandbContext(config):
         best_score = run_fn(config, ddp_model, train_loader, valid_loader, criterion, optimizer, scheduler, device, checkpoint_dir, use_wandb=config.engine.use_wandb)
 
     return best_score
 
-def init_processes():
+def init_processes(checkpoint_dir):
+    print(rank)
+    print(world_size)
+    print(gpus_per_node)
+    print(f"Hello from rank {rank} of {world_size} on {gethostname()} where there are" \
+          f" {gpus_per_node} allocated GPUs per node.", flush=True)
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
-
+    #dist.init_process_group(backend, rank=rank, world_size=world_size)
+    #fn(dist.get_rank(), dist.get_world_size())
+    if rank == 0: 
+        print(f"Group initialized? {dist.is_initialized()}", flush=True)
+        #checkpoint_dir = f"{config.checkpoint_dir}/{config.project_name}/{config.exp_name}"
+        os.makedirs(checkpoint_dir, exist_ok=False)
+    
+    
 if __name__ == '__main__':
     args = parse_args()
+    print(args)
+    
     config_path = args.config
     
     config = get_config(config_path)
 
-    init_processes()
+    checkpoint_dir = f"{config.checkpoint_dir}/{config.project_name}/{config.exp_name}" 
 
-    run(config)
+    init_processes(checkpoint_dir)
+
+    run(config, checkpoint_dir)

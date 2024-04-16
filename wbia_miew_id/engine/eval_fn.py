@@ -8,7 +8,7 @@ from metrics import AverageMeter, compute_distance_matrix, compute_calibration, 
 from helpers.swatools import extract_outputs
 from torch.cuda.amp import autocast  
 
-def extract_embeddings(data_loader, model, device):
+def extract_embeddings(data_loader, model, device, use_wandb, return_outputs):
     model.eval()
     tk0 = tqdm(data_loader, total=len(data_loader))
     embeddings = []
@@ -17,7 +17,14 @@ def extract_embeddings(data_loader, model, device):
     with torch.no_grad():
         for batch in tk0:
             with autocast():
-                batch_embeddings = model.extract_feat(batch["image"].to(device))
+                if return_outputs is False:
+                    batch_embeddings = model.module.extract_feat(batch["image"].to(device))
+
+                elif return_outputs is True:
+                    # ddp_model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], output_device=local_rank)
+                    # model = torch.nn.parallel.DistributedDataParallel(model).to(device)
+                    batch_embeddings = model.extract_feat(batch["image"].to(device))
+                    # batch_embeddings = model.module.extract_feat(batch["image"].to(device))
             
             batch_embeddings = batch_embeddings.detach().cpu().numpy()
             
@@ -122,8 +129,7 @@ def log_results(mAP, cmc, use_wandb=True):
     if use_wandb: wandb.log({"mAP": mAP})
 
 def eval_fn(data_loader, model, device, use_wandb=True, return_outputs=False):
-
-    embeddings, labels = extract_embeddings(data_loader, model, device)
+    embeddings, labels = extract_embeddings(data_loader, model, device, use_wandb, return_outputs)
     mAP, cmc, (embeddings, q_pids, distmat) = calculate_matches(embeddings, labels)
 
 

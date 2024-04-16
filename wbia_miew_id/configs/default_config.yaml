@@ -1,9 +1,9 @@
 exp_name: strat_four_identifiability_new
-project_name: ankit_identifiability_CCI_final_run_new_12
+project_name: okonkc_identifiability_CCI_final_run_new_18
 checkpoint_dir: ./runs
 comment: Experiment comment goes here
 data:
-  images_dir: /gpfs/u/home/GGRD/GGRDpdhm/scratch/coco/images/test2023
+  images_dir: /gpfs/u/home/PCPE/PCPEknkw/scratch/FinalProject/coco/images/test2023
   use_full_image_path: false
   preprocess_images: false
   viewpoint_list: ['left', 'right']
@@ -13,23 +13,23 @@ data:
     - 480
     - 480
   test:
-    anno_path: /gpfs/u/home/GGRD/GGRDpdhm/barn/miniconda3x86/envs/jupyter/leopard_group_3.json
+    anno_path: /gpfs/u/home/PCPE/PCPEknkw/scratch/miniconda3x86/envs/test_env/leopard_group_3.json
     checkpoint_path: ''
     n_filter_min: 2
     n_subsample_max: 10
   train:
-    anno_path: /gpfs/u/home/GGRD/GGRDpdhm/barn/miniconda3x86/envs/jupyter/leopard_train_strat_four.json
+    anno_path: /gpfs/u/home/PCPE/PCPEknkw/scratch/miniconda3x86/envs/test_env/leopard_train_strat_four.json
     n_filter_min: 3
     n_subsample_max: null
   val:
-    anno_path: /gpfs/u/home/GGRD/GGRDpdhm/barn/miniconda3x86/envs/jupyter/leopard_group_3.json
+    anno_path: /gpfs/u/home/PCPE/PCPEknkw/scratch/miniconda3x86/envs/test_env/leopard_group_3.json
     n_filter_min: 2
     n_subsample_max: 10
 engine:
   num_workers: 2
   train_batch_size: 2
   valid_batch_size: 6
-  epochs: 30
+  epochs: 3
   seed: 42
   device: cuda
   use_wandb: false
